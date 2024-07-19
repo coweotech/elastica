@@ -1,5 +1,5 @@
 {
-  "name": "contributte/elastica",
+  "name": "coweo/elastica",
   "type": "library",
   "description": "Elastica implementation for Nette Framework",
   "keywords": [
@@ -20,7 +20,7 @@
   ],
   "require": {
     "php": ">=8.1",
-    "ruflin/elastica": "^7.3.1",
+    "ruflin/elastica": "^8.0",
     "nette/di": "^3.1.8",
     "nette/utils": "^4.0.3"
   },
@@ -51,7 +51,8 @@
   "config": {
     "sort-packages": true,
     "allow-plugins": {
-      "dealerdirect/phpcodesniffer-composer-installer": true
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "php-http/discovery": true
     }
   },
   "extra": {

@@ -1,4 +1,4 @@
-<?php declare (strict_types = 1);
+<?php declare (strict_types=1);
 
 namespace Contributte\Elastica\DI;
 
@@ -22,10 +22,8 @@ class ElasticaExtension extends CompilerExtension
 	{
 		// https://github.com/ruflin/Elastica/blob/master/src/ClientConfiguration.php#L26
 		$clientConfig = [
-			'host' => Expect::string()->nullable()->dynamic(),
-			'port' => Expect::int()->nullable()->dynamic(),
+			'hosts' => Expect::array()->nullable()->dynamic(),
 			'path' => Expect::string()->nullable(),
-			'url' => Expect::string()->nullable(),
 			'proxy' => Expect::string()->nullable(),
 			'transport' => Expect::string()->nullable(),
 			'compression' => Expect::bool(),
@@ -38,6 +36,7 @@ class ElasticaExtension extends CompilerExtension
 			'auth_type' => Expect::anyOf('basic', 'digest', 'gssnegotiate', 'ntlm')->nullable()->dynamic(),
 			'curl' => Expect::arrayOf('mixed', 'int'),
 			'headers' => Expect::arrayOf('string', 'string'),
+			'transport_config' => Expect::arrayOf('string', 'string'),
 		];
 
 		return Expect::structure([
@@ -45,14 +44,14 @@ class ElasticaExtension extends CompilerExtension
 			'config' => Expect::structure(array_merge(
 				$clientConfig,
 				[
-					'connections' => Expect::arrayOf(
+					'servers' => Expect::arrayOf(
 						Expect::structure($clientConfig)->skipDefaults()->castTo('array')
 					),
-					'roundRobin' => Expect::bool(),
 				]
 			))->skipDefaults()->castTo('array'),
 		]);
 	}
+
 
 	public function loadConfiguration(): void
 	{
@@ -68,6 +67,7 @@ class ElasticaExtension extends CompilerExtension
 			$elastica->addSetup($this->prefix('@panel') . '::register', ['@self']);
 		}
 	}
+
 
 	public function afterCompile(ClassType $class): void
 	{
