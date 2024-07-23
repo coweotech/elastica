@@ -1,5 +1,5 @@
 {
-  "name": "coweo/elastica",
+  "name": "coweotech/elastica",
   "type": "library",
   "description": "Elastica implementation for Nette Framework",
   "keywords": [
