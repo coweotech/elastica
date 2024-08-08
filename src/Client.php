@@ -1,4 +1,4 @@
-<?php declare (strict_types = 1);
+<?php declare(strict_types = 1);
 
 namespace Contributte\Elastica;
 
@@ -19,6 +19,7 @@ class Client extends ElasticaClient
 	/** @var callable[] */
 	public array $onFailure = [];
 
+
 	/**
 	 * {@inheritdoc}
 	 */
@@ -37,5 +38,4 @@ class Client extends ElasticaClient
 			throw $e;
 		}
 	}
-
 }

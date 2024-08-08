@@ -1,4 +1,4 @@
-<?php declare (strict_types = 1);
+<?php declare(strict_types = 1);
 
 namespace Contributte\Elastica\Diagnostics;
 
@@ -45,11 +45,9 @@ class Panel implements IBarPanel
 
 			$panel .= '<h3>Response</h3>';
 			$panel .= Dumper::toHtml($e->getResponse());
-
 		} elseif ($e instanceof \Elastica\Exception\Bulk\ResponseException) {
 			$panel .= '<h3>Failures</h3>';
 			$panel .= Dumper::toHtml($e->getFailures());
-
 		}
 
 		return $panel ? [
@@ -67,7 +65,7 @@ class Panel implements IBarPanel
 		if ($this->queriesCount) {
 			$title->setText(
 				$this->queriesCount . ' call' . ($this->queriesCount > 1 ? 's' : '') .
-				' / ' . sprintf('%0.2f', $this->totalTime * 1000) . ' ms'
+					' / ' . sprintf('%0.2f', $this->totalTime * 1000) . ' ms'
 			);
 		}
 
@@ -96,7 +94,7 @@ class Panel implements IBarPanel
 			} catch (JsonException $e) {
 				try {
 					/** @phpstan-var mixed $data */
-					return array_map(fn ($row) => Json::decode((string) $row, Json::FORCE_ARRAY), is_string($data) ? explode("\n", trim($data)) : []);
+					return array_map(fn($row) => Json::decode((string) $row, Json::FORCE_ARRAY), is_string($data) ? explode("\n", trim($data)) : []);
 				} catch (JsonException $e) {
 					return $data;
 				}
@@ -134,7 +132,6 @@ class Panel implements IBarPanel
 
 					// replace the search response with the explained response
 					$processedQueries[$authority][$i][1] = $response;
-
 				} catch (Throwable $e) {
 					// ignore
 				}
@@ -181,7 +178,6 @@ class Panel implements IBarPanel
 		if ($response) {
 			$info = $response->getTransferInfo();
 			$url = new Url($info['url']);
-
 		} else {
 			/** @var string $current */
 			$current = key($this->queries);
@@ -190,5 +186,4 @@ class Panel implements IBarPanel
 
 		return $url->hostUrl;
 	}
-
 }
