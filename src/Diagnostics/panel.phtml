@@ -49,20 +49,20 @@ $esc = function ($s) {
 	}
 </style>
 
-<?php foreach ($processedQueries as $host => $queries): ?>
-	<h1 class="nette-elasticSearchPanel"><code><?php echo $esc($host) ?></code> - Queries: <?php echo $esc(count($queries)); ?>, time: <?php echo $esc($totalTime); ?> </h1>
+<?php foreach ($processedQueries as $host => $queries) : ?>
+	<h1 class="nette-elasticSearchPanel"><code><?php echo $esc($host) ?></code> - Queries: <?php echo $esc(count($queries)); ?>, time: <?php echo $esc(number_format($totalTime, 5)); ?> </h1>
 	<div class="nette-inner tracy-inner nette-elasticSearchPanel">
-		<?php foreach ($queries as $query): ?>
-			<?php list($request, $response, $time) = $query;
-			$info = $response ? $response->getTransferInfo() : array('url' => 'http://localhost:9200/');
-			$url = new \Nette\Http\Url($info['url']); ?>
+		<?php foreach ($queries as $query) : ?>
+			<?php list($request, $response, $time) = $query; ?>
+			<?php $url = new \Nette\Http\Url((string) $request->getUri()); ?>
 			<h2>
 				<code><?php echo $esc(strtoupper($request->getMethod())); ?> <?php echo $esc('/' . ltrim($url->path, '/')); ?></code>
 				<small><?php echo $esc(number_format($time * 1000, 2)); ?>ms</small>
 			</h2>
 
 			<table>
-				<?php if ($request->getData()): $requestData = $extractData($request); ?>
+				<?php $requestData = $extractData($request); ?>
+				<?php if ($requestData) :  ?>
 					<tr>
 						<th width="100"><a href="json:<?php echo $esc(\Nette\Utils\Json::encode($requestData)) ?>">Request:</th>
 						<td><?php echo $click($requestData, TRUE, 25); ?></td>
@@ -71,10 +71,12 @@ $esc = function ($s) {
 
 				<tr>
 					<th width="100">Search type:</th>
-					<td><?php echo isset($request->getQuery()[\Elastica\Search::OPTION_SEARCH_TYPE]) ? $esc($request->getQuery()[\Elastica\Search::OPTION_SEARCH_TYPE]) : 'search' ?></td>
+					<td>
+						<?php echo isset($requestData[\Elastica\Search::OPTION_SEARCH_TYPE]) ? $esc($requestData[\Elastica\Search::OPTION_SEARCH_TYPE]) : 'search' ?>
+					</td>
 				</tr>
 
-				<?php if ($response && $response->isOk()) {
+				<?php if ($response instanceof Elastica\Response &&  $response->isOk()) {
 					$responsesData = $extractData($response); ?>
 					<?php $multiple = isset($responsesData['responses']);
 					$responsesData = $multiple ? $responsesData['responses'] : array($responsesData); ?>
@@ -86,7 +88,7 @@ $esc = function ($s) {
 			<table class="multiRequest">
 			<?php } ?>
 
-			<?php if (stripos($request->getPath(), '_search') !== FALSE || stripos($request->getPath(), '_msearch') !== FALSE) { ?>
+			<?php if (stripos($request->getUri()->getPath(), '_search') !== FALSE || stripos($request->getUri()->getPath(), '_msearch') !== FALSE) { ?>
 				<?php if (isset($responseData['took'])) { ?><tr>
 						<th width="100">Took:</th>
 						<td><?php echo $click($responseData['took']); ?></td>

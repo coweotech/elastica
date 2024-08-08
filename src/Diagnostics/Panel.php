@@ -3,14 +3,16 @@
 namespace Contributte\Elastica\Diagnostics;
 
 use Contributte\Elastica\Client;
+use Elastica\Exception\Bulk\ResponseException as BulkResponseException;
 use Elastica\Exception\ExceptionInterface;
-use Elastica\Exception\ResponseException;
-use Elastica\Request;
 use Elastica\Response;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Nette\Http\Url;
 use Nette\Utils\Html;
 use Nette\Utils\Json;
 use Nette\Utils\JsonException;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 use Tracy\Debugger;
 use Tracy\Dumper;
@@ -26,8 +28,6 @@ class Panel implements IBarPanel
 	/** @var mixed[] */
 	public array $queries = [];
 
-	private Client $client;
-
 	/**
 	 * @return array<string, string>|NULL
 	 */
@@ -39,21 +39,18 @@ class Panel implements IBarPanel
 
 		$panel = null;
 
-		if ($e instanceof ResponseException) {
-			$panel .= '<h3>Request</h3>';
-			$panel .= Dumper::toHtml($e->getRequest());
-
-			$panel .= '<h3>Response</h3>';
-			$panel .= Dumper::toHtml($e->getResponse());
-		} elseif ($e instanceof \Elastica\Exception\Bulk\ResponseException) {
+		if ($e instanceof BulkResponseException) {
 			$panel .= '<h3>Failures</h3>';
 			$panel .= Dumper::toHtml($e->getFailures());
+		} else {
+			$panel .= '<h3>Elastica Exception</h3>';
+			$panel .= Dumper::toHtml($e);
 		}
 
-		return $panel ? [
+		return [
 			'tab' => 'ElasticSearch',
 			'panel' => $panel,
-		] : null;
+		];
 	}
 
 	public function getTab(): string
@@ -79,22 +76,22 @@ class Panel implements IBarPanel
 		}
 
 		/**
-		 * @param Request|Response|mixed $object
+		 * @param RequestInterface|Response|mixed $object
 		 */
 		$extractData = function ($object) {
-			if (!($object instanceof Request) && !($object instanceof Response)) {
+			if (!($object instanceof RequestInterface) && !($object instanceof Response)) {
 				return [];
 			}
 
 			/** @var string|mixed[] $data */
-			$data = $object->getData();
+			$data = $object instanceof RequestInterface ? (string) $object->getBody() : $object->getData();
 
 			try {
-				return !is_array($data) ? Json::decode($data, Json::FORCE_ARRAY) : $data;
+				return !is_array($data) ? Json::decode($data, true) : $data;
 			} catch (JsonException $e) {
 				try {
 					/** @phpstan-var mixed $data */
-					return array_map(fn($row) => Json::decode((string) $row, Json::FORCE_ARRAY), is_string($data) ? explode("\n", trim($data)) : []);
+					return array_map(fn ($row) => Json::decode((string) $row, true), is_string($data) ? explode("\n", trim($data)) : []);
 				} catch (JsonException $e) {
 					return $data;
 				}
@@ -106,7 +103,7 @@ class Panel implements IBarPanel
 		$totalTime = $this->totalTime; // @phpcs:ignore
 
 		foreach ($allQueries as $authority => $requests) {
-			/** @var Request[] $item */
+			/** @var array{0: RequestInterface, 1: Response|ResponseInterface, 2: float, 3: ?Throwable} $item */
 			foreach ($requests as $i => $item) {
 				$processedQueries[$authority][$i] = $item;
 
@@ -114,7 +111,7 @@ class Panel implements IBarPanel
 					continue; // exception, do not re-execute
 				}
 
-				if (stripos($item[0]->getPath(), '_search') === false || $item[0]->getMethod() !== 'GET') {
+				if (stripos((string) $item[0]->getUri(), '_search') === false || $item[0]->getMethod() !== 'GET') {
 					continue; // explain only search queries
 				}
 
@@ -122,19 +119,17 @@ class Panel implements IBarPanel
 					continue;
 				}
 
-				try {
-					$response = $this->client->request(
-						$item[0]->getPath(),
-						$item[0]->getMethod(),
-						$item[0]->getData(),
-						['explain' => 1] + $item[0]->getQuery()
-					);
+				// try {
+				// V původním panelu zde byl nový request s nastaveným parametem explain => 1
+				// Při porovnání výsledků v panelu po aktualizaci není rozdíl, takže znovu dotaz neposíláme
+				// $result = $this->client->sendRequest($item[0]);
+				// $response = ResponseConverter::toElastica($result);
 
-					// replace the search response with the explained response
-					$processedQueries[$authority][$i][1] = $response;
-				} catch (Throwable $e) {
-					// ignore
-				}
+				// // replace the search response with the explained response
+				// $processedQueries[$authority][$i][1] = $response;
+				// } catch (Throwable $e) {
+				// ignore
+				// }
 			}
 		}
 
@@ -147,43 +142,36 @@ class Panel implements IBarPanel
 		return $result === false ? null : $result;
 	}
 
-	public function success(Client $client, Request $request, Response $response, float $time): void
+	public function success(Client $client, RequestInterface $request, Response $response, float $time): void
 	{
-		$this->queries[$this->requestAuthority($response)][] = [$request, $response, $time];
+		$this->queries[$this->requestAuthority($request)][] = [$request, $response, $time];
 		$this->totalTime += $time;
 		$this->queriesCount++;
 	}
 
-	public function failure(Client $client, Request $request, Throwable $e, float $time): void
+	public function failure(Client $client, RequestInterface $request, Throwable $e, float $time): void
 	{
-		/** @var Response $response */
+		/** @var Psr7Response $response */
 		$response = method_exists($e, 'getResponse') ? $e->getResponse() : null;
 
-		$this->queries[$this->requestAuthority($response)][] = [$request, $response, $time, $e];
+		$this->queries[$this->requestAuthority($request)][] = [$request, $response, $time, $e];
 		$this->totalTime += $time;
 		$this->queriesCount++;
 	}
 
 	public function register(Client $client): void
 	{
-		$this->client = $client;
 		$client->onSuccess[] = [$this, 'success'];
 		$client->onFailure[] = [$this, 'failure'];
 
 		Debugger::getBar()->addPanel($this);
 	}
 
-	protected function requestAuthority(?Response $response = null): string
+	protected function requestAuthority(?RequestInterface $request): string
 	{
-		if ($response) {
-			$info = $response->getTransferInfo();
-			$url = new Url($info['url']);
-		} else {
-			/** @var string $current */
-			$current = key($this->queries);
-			$url = new Url($current ?: 'http://localhost:9200/');
-		}
+		$url = new Url((string) $request?->getUri());
 
 		return $url->hostUrl;
 	}
+
 }
