@@ -1,11 +1,12 @@
-<?php declare (strict_types = 1);
+<?php declare(strict_types = 1);
 
 namespace Contributte\Elastica;
 
+use Elastic\Elasticsearch\Response\Elasticsearch;
 use Elastica\Client as ElasticaClient;
-use Elastica\Request;
-use Elastica\Response;
+use Elastica\ResponseConverter;
 use Nette\SmartObject;
+use Psr\Http\Message\RequestInterface;
 use Throwable;
 
 class Client extends ElasticaClient
@@ -19,23 +20,22 @@ class Client extends ElasticaClient
 	/** @var callable[] */
 	public array $onFailure = [];
 
-	/**
-	 * {@inheritdoc}
-	 */
-	public function request(string $path, string $method = Request::GET, $data = [], array $query = [], string $contentType = Request::DEFAULT_CONTENT_TYPE): Response
+	public function sendRequest(RequestInterface $request): Elasticsearch
 	{
 		$start = microtime(true);
 
 		try {
-			$response = parent::request($path, $method, $data, $query, $contentType);
-			$this->onSuccess($this, $this->_lastRequest, $response, microtime(true) - $start);
+			$result = parent::sendRequest($request);
 
-			return $response;
+			$elasticaResponse = ResponseConverter::toElastica($result);
+			$this->onSuccess($this, $this->getTransport()->getLastRequest(), $elasticaResponse, microtime(true) - $start);
 		} catch (Throwable $e) {
-			$this->onFailure($this, $this->_lastRequest, $e, microtime(true) - $start);
+			$this->onFailure($this, $this->getTransport()->getLastRequest(), $e, microtime(true) - $start);
 
 			throw $e;
 		}
+
+		return $result;
 	}
 
 }
