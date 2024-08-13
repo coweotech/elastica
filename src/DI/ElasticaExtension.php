@@ -1,4 +1,4 @@
-<?php declare (strict_types=1);
+<?php declare (strict_types = 1);
 
 namespace Contributte\Elastica\DI;
 
@@ -52,7 +52,6 @@ class ElasticaExtension extends CompilerExtension
 		]);
 	}
 
-
 	public function loadConfiguration(): void
 	{
 		$builder = $this->getContainerBuilder();
@@ -67,7 +66,6 @@ class ElasticaExtension extends CompilerExtension
 			$elastica->addSetup($this->prefix('@panel') . '::register', ['@self']);
 		}
 	}
-
 
 	public function afterCompile(ClassType $class): void
 	{
